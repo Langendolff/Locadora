@@ -1,0 +1,23 @@
+LOCADORA - instalação no Linux
+==============================
+
+Você precisa de:
+  1. Docker com o plugin compose (https://docs.docker.com/engine/install/)
+     e seu usuário no grupo docker:  sudo usermod -aG docker $USER  (depois saia e entre)
+  2. Um arquivo WireGuard (.conf) de uma VPN que permita P2P
+       (ProtonVPN pago: account.protonvpn.com > Downloads > WireGuard configuration,
+        servidor P2P, NAT-PMP ligado)
+
+Instalar (nesta pasta):
+  ./setup.sh ~/Downloads/sua-vpn.conf
+
+Ele pede um usuário e uma senha e configura tudo. Com GPU Intel/AMD, o Jellyfin usa
+aceleração de vídeo automaticamente.
+
+Depois:
+  Pedir filmes e séries:  http://localhost:5055
+  Assistir:               http://localhost:8096
+
+Algo não funciona?  ./diagnostico.sh  (confere VPN, disco e serviços e diz o que fazer)
+
+Documentação: https://github.com/Langendolff/Locadora

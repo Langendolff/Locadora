@@ -1,0 +1,199 @@
+# Stack de mídia: Seerr -> Radarr/Sonarr -> Prowlarr -> Gluetun+Deluge -> Radarr/Sonarr -> Jellyfin
+#
+# Não edite este arquivo para colocar credenciais: tudo vem do .env e de vpn/wg0.conf.
+#
+# Layout de pastas (um único /data montado em todos -> hardlinks, sem cópia duplicada):
+#   ${DATA_ROOT}/torrents/{movies,tv,incomplete}   <- Deluge baixa aqui
+#   ${DATA_ROOT}/media/{movies,tv}                 <- Radarr/Sonarr organizam aqui, Jellyfin lê daqui
+
+# Nome fixo do projeto: renomear ou mover a pasta não "perde" os containers
+name: locadora
+
+x-common: &common
+  restart: unless-stopped
+  environment: &env
+    PUID: ${PUID:-1000}
+    PGID: ${PGID:-1000}
+    TZ: ${TZ:-America/Sao_Paulo}
+
+services:
+  # ---------- VPN ----------
+  gluetun:
+    image: qmcgaw/gluetun:latest
+    container_name: gluetun
+    restart: unless-stopped
+    cap_add: [NET_ADMIN]
+    devices: [/dev/net/tun:/dev/net/tun]
+    environment:
+      TZ: ${TZ:-America/Sao_Paulo}
+      # Lê a config WireGuard exportada do painel da Proton (ou qualquer provedor)
+      VPN_SERVICE_PROVIDER: custom
+      VPN_TYPE: wireguard
+      # Deixa os containers da rede local (Radarr/Sonarr) falarem com o Deluge
+      FIREWALL_OUTBOUND_SUBNETS: 172.16.0.0/12,192.168.0.0/16  # não incluir 10.x: é a faixa da Proton
+      # Redirecionamento de portas (Proton pago, servidor P2P, NAT-PMP ligado no .conf).
+      # O setup.sh liga sozinho quando o .conf tem "NAT-PMP ... = on".
+      VPN_PORT_FORWARDING: ${VPN_PORT_FORWARDING:-off}
+      VPN_PORT_FORWARDING_PROVIDER: protonvpn
+      VPN_PORT_FORWARDING_STATUS_FILE: /gluetun/forwarded_port
+    ports:
+      - "${DELUGE_PORT:-8112}:8112"     # Deluge Web UI (o Deluge usa a rede do gluetun)
+    volumes:
+      - ./config/gluetun:/gluetun
+      - ./vpn/wg0.conf:/gluetun/wireguard/wg0.conf:ro
+    healthcheck:
+      test: ["CMD", "/gluetun-entrypoint", "healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # ---------- Download (todo o tráfego sai pela VPN) ----------
+  deluge:
+    <<: *common
+    image: lscr.io/linuxserver/deluge:latest
+    container_name: deluge
+    network_mode: "service:gluetun"   # sem VPN = sem internet (kill switch)
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    environment:
+      <<: *env
+      DELUGE_LOGLEVEL: error
+    volumes:
+      - ./config/deluge:/config
+      - ${DATA_ROOT:-./data}/torrents:/data/torrents
+      - ./config/gluetun:/gluetun:ro                                    # porta redirecionada
+      - ./scripts/deluge-portforward.sh:/custom-services.d/portforward:ro
+
+  # ---------- Indexadores ----------
+  prowlarr:
+    <<: *common
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    environment:
+      <<: *env
+      PROWLARR__AUTH__APIKEY: ${PROWLARR_API_KEY}
+    ports: ["${PROWLARR_PORT:-9696}:9696"]
+    volumes:
+      - ./config/prowlarr:/config
+      - ./indexers:/config/Definitions/Custom:ro   # definições de indexador extras
+
+  # Resolve desafios Cloudflare de alguns indexadores
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-America/Sao_Paulo}
+    ports: ["127.0.0.1:${FLARESOLVERR_PORT:-8191}:8191"]
+
+  # ---------- Filmes / Séries ----------
+  radarr:
+    <<: *common
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    environment:
+      <<: *env
+      RADARR__AUTH__APIKEY: ${RADARR_API_KEY}
+    ports: ["${RADARR_PORT:-7878}:7878"]
+    volumes:
+      - ./config/radarr:/config
+      - ${DATA_ROOT:-./data}:/data
+
+  sonarr:
+    <<: *common
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    environment:
+      <<: *env
+      SONARR__AUTH__APIKEY: ${SONARR_API_KEY}
+    ports: ["${SONARR_PORT:-8989}:8989"]
+    volumes:
+      - ./config/sonarr:/config
+      - ${DATA_ROOT:-./data}:/data
+
+  # ---------- Legendas ----------
+  bazarr:
+    <<: *common
+    image: lscr.io/linuxserver/bazarr:latest
+    container_name: bazarr
+    ports: ["${BAZARR_PORT:-6767}:6767"]
+    volumes:
+      - ./config/bazarr:/config
+      - ${DATA_ROOT:-./data}:/data
+
+  # ---------- Streaming ----------
+  jellyfin:
+    <<: *common
+    image: lscr.io/linuxserver/jellyfin:latest
+    container_name: jellyfin
+    ports:
+      - "${JELLYFIN_PORT:-8096}:8096"
+    volumes:
+      - ./config/jellyfin:/config
+      - ${DATA_ROOT:-./data}/media:/data/media:ro
+      - ./assets/jellyfin:/usr/share/jellyfin/web/locadora:ro                 # tema e imagens
+      - ./scripts/jellyfin-branding.sh:/custom-cont-init.d/10-locadora:ro      # aplica a marca
+
+  # ---------- Pedidos ----------
+  seerr:
+    image: ghcr.io/seerr-team/seerr:latest
+    container_name: seerr
+    restart: unless-stopped
+    init: true
+    environment:
+      TZ: ${TZ:-America/Sao_Paulo}
+      LOG_LEVEL: info
+    ports: ["${SEERR_PORT:-5055}:5055"]
+    volumes:
+      - ./config/seerr:/app/config
+
+  # ---------- Acesso de fora de casa (só sobe com TS_AUTHKEY no .env) ----------
+  # Jellyfin em https://locadora.<sua-rede>.ts.net e Seerr na porta 8443, só para aparelhos da
+  # sua rede Tailscale. Nada fica aberto para a internet.
+  tailscale:
+    image: tailscale/tailscale:latest
+    container_name: tailscale
+    hostname: locadora
+    restart: unless-stopped
+    profiles: [remoto]
+    environment:
+      TS_AUTHKEY: ${TS_AUTHKEY:-}
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_USERSPACE: "true"               # sem /dev/net/tun nem privilégios extras
+      TS_SERVE_CONFIG: /config/serve.json
+    volumes:
+      - ./config/tailscale:/var/lib/tailscale
+      - ./scripts/tailscale-serve.json:/config/serve.json:ro
+    depends_on: [jellyfin, seerr]
+
+  # ---------- Tarefas automáticas: bot do Telegram e limpeza (ligadas pelo .env) ----------
+  tarefas:
+    image: python:3.13-alpine
+    container_name: tarefas
+    restart: unless-stopped
+    init: true
+    env_file: .env
+    environment:
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      - ./scripts:/scripts:ro
+      - ./config/tarefas:/estado        # o que já foi avisado
+    command: ["python", "/scripts/tarefas.py"]
+    depends_on: [seerr, jellyfin, radarr]
+
+  # ---------- Configuração automática (roda só via ./setup.sh) ----------
+  setup:
+    image: python:3.13-alpine
+    profiles: [setup]
+    env_file: .env
+    environment:
+      PYTHONUNBUFFERED: "1"
+      HAS_GPU: ${HAS_GPU:-0}
+    volumes:
+      - ./scripts:/scripts:ro
+      - ./indexers:/indexers:ro
+      - ./assets/jellyfin:/assets/jellyfin:ro
+      - ./config/bazarr/config:/bazarr-config:ro   # pra ler a API key gerada pelo Bazarr
+    command: ["python", "/scripts/configure.py"]

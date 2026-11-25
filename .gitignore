@@ -1,0 +1,27 @@
+# Segredos: NUNCA vão pro GitHub
+.env
+*.conf
+vpn/*
+!vpn/README.md
+
+# Dados locais dos serviços e da mídia
+config/
+data/
+
+# Python
+__pycache__/
+*.pyc
+
+# Rascunhos
+exemplo_stack.jpg
+
+# Indexadores: cada instalação escolhe os seus (o modelo é indexers/public.example.txt)
+indexers/*
+!indexers/public.example.txt
+
+# Backups do ./atualizar.sh (têm senhas)
+backups/
+config.antes-*/
+
+# Pacotes gerados por scripts/release.sh
+dist/

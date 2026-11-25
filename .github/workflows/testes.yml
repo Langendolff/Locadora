@@ -1,0 +1,22 @@
+name: Testes
+
+# Sintaxe dos scripts + testes (regras de idioma etc.) a cada push e pull request
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"   # a mesma do container setup
+      - name: Sintaxe
+        run: |
+          for f in setup.sh change-password.sh scripts/*.sh install/macos/Instalar.command install/macos/Diagnostico.command diagnostico.sh pessoas.sh atualizar.sh limpeza.sh importar.sh; do bash -n "$f"; done
+          python3 -m py_compile scripts/configure.py scripts/tarefas.py scripts/stack/*.py
+      - name: Testes
+        run: python3 -m unittest discover -s tests -v

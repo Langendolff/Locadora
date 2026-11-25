@@ -1,0 +1,9 @@
+# Indexadores que o ./setup.sh ativa no Prowlarr. Para usar: copie este arquivo para
+# indexers/public.txt (que fica fora do git) e escreva um indexador por linha.
+#
+#   NOME [flare]   # comentário
+#
+# NOME é o "definitionName" do indexador no Prowlarr (veja docs/indexadores.md para achar).
+# "flare" faz o acesso passar pelo FlareSolverr, para sites atrás do Cloudflare.
+#
+# Definições customizadas (.yml do Cardigann) também podem ficar nesta pasta.

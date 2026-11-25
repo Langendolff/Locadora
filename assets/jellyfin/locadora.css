@@ -1,0 +1,227 @@
+/* =====================================================================
+   Locadora: tema para o Jellyfin
+   Carregado pelo "CSS personalizado" do Jellyfin (Painel → Geral → Marca),
+   aplicado automaticamente pelo ./setup.sh. Base: tema "Escuro".
+   ===================================================================== */
+
+/* ---------- Paleta ---------- */
+:root,
+[data-mui-color-scheme],
+[data-theme] {
+    --loc-red: #E5422B;
+    --loc-red-rgb: 229 66 43;
+    --loc-red-dark: #B8301D;
+    --loc-red-soft: rgba(229, 66, 43, .16);
+    --loc-ink: #0F1014;        /* fundo */
+    --loc-panel: #17191F;      /* cartões, menus */
+    --loc-panel-2: #1F222A;    /* campos, hover */
+    --loc-line: rgba(244, 241, 236, .10);
+    --loc-text: #F4F1EC;       /* branco quente */
+    --loc-text-2: rgba(244, 241, 236, .66);
+
+    --jf-palette-primary-main: var(--loc-red) !important;
+    --jf-palette-primary-mainChannel: var(--loc-red-rgb) !important;
+    --jf-palette-primary-dark: var(--loc-red-dark) !important;
+    --jf-palette-primary-light: #EF6A56 !important;
+    --jf-palette-primary-contrastText: #FFFFFF !important;
+    --jf-palette-secondary-main: var(--loc-red) !important;
+    --jf-palette-secondary-mainChannel: var(--loc-red-rgb) !important;
+    --jf-palette-secondary-contrastText: #FFFFFF !important;
+
+    --jf-palette-background-default: var(--loc-ink) !important;
+    --jf-palette-background-paper: var(--loc-panel) !important;
+    --jf-palette-AppBar-defaultBg: var(--loc-ink) !important;
+    --jf-palette-AppBar-transparentBg: rgba(15, 16, 20, .72) !important;
+
+    --jf-palette-text-primary: var(--loc-text) !important;
+    --jf-palette-text-secondary: var(--loc-text-2) !important;
+    --jf-palette-divider: var(--loc-line) !important;
+
+    --jf-palette-FilledInput-bg: var(--loc-panel-2) !important;
+    --jf-palette-FilledInput-borderColor: transparent !important;
+    --jf-palette-Button-inheritContainedBg: var(--loc-panel-2) !important;
+    --jf-palette-Button-inheritContainedHoverBg: #2A2E38 !important;
+    --jf-palette-SnackbarContent-bg: var(--loc-panel-2) !important;
+    --jf-palette-action-hover: rgba(244, 241, 236, .06) !important;
+    --jf-palette-action-focus: var(--loc-red-soft) !important;
+
+    --jf-card-borderRadius: .55em !important;
+}
+
+/* ---------- Base ---------- */
+html, body {
+    font-family: "Inter", "Noto Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+* { scrollbar-color: #2E323C var(--loc-ink); }
+::selection { background: var(--loc-red); color: #fff; }
+
+/* Fundo com um leve brilho vermelho no topo, como a luz de um letreiro */
+.backgroundContainer:not(.withBackdrop),
+html {
+    background-color: var(--loc-ink);
+    background-image: radial-gradient(120% 60% at 50% -10%, rgba(229, 66, 43, .10), transparent 60%);
+    background-attachment: fixed;
+}
+
+/* ---------- Barra superior + faixa de "fita" ---------- */
+.skinHeader-withBackground {
+    background-color: rgba(15, 16, 20, .88) !important;
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+}
+.skinHeader-withBackground::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 7px;
+    pointer-events: none;
+    /* três linhas finas: as camadas do logo */
+    background: linear-gradient(to bottom,
+        transparent 0 1px, var(--loc-red) 1px 2px,
+        transparent 2px 3px, rgba(229, 66, 43, .6) 3px 4px,
+        transparent 4px 5px, rgba(229, 66, 43, .3) 5px 6px,
+        transparent 6px);
+    opacity: .9;
+}
+
+/* Abas: sublinhado vermelho na ativa */
+.emby-tab-button { color: var(--loc-text-2); }
+.emby-tab-button-active,
+.emby-tab-button.emby-button-focused {
+    color: var(--loc-text) !important;
+    box-shadow: inset 0 -3px 0 var(--loc-red);
+}
+
+/* ---------- Botões ---------- */
+.button-submit,
+.raised.button-submit {
+    background: var(--loc-red) !important;
+    color: #fff !important;
+    border-radius: .6em;
+    font-weight: 600;
+    letter-spacing: .01em;
+}
+.button-submit:hover { background: var(--loc-red-dark) !important; }
+.raised, .fab, a[data-role=button] { border-radius: .6em; }
+.button-flat:hover, .button-link { color: var(--loc-red); }
+
+/* Botão de play grande na página do filme */
+.detailButton-primary,
+.btnPlay.detailButton {
+    background: var(--loc-red) !important;
+    color: #fff !important;
+}
+.detailButton-primary:hover,
+.btnPlay.detailButton:hover { background: var(--loc-red-dark) !important; }
+
+/* ---------- Cartazes ---------- */
+.cardBox:not(.visualCardBox) .cardPadder,
+.visualCardBox,
+.paperList { background-color: var(--loc-panel); }
+@media (hover: hover) and (pointer: fine) {
+    .card:hover .cardImageContainer,
+    .card:focus .cardImageContainer {
+        box-shadow: 0 0 0 2px var(--loc-red), 0 10px 28px rgba(0, 0, 0, .55);
+        transition: box-shadow .15s ease;
+    }
+}
+.card.show-focus:focus > .cardBox { border-color: var(--loc-red) !important; }
+
+/* Selo de "não assistido" e indicadores */
+.countIndicator, .playedIndicator, .indicator.playedIndicator {
+    background: var(--loc-red) !important;
+    color: #fff;
+}
+.itemProgressBarForeground,
+.playbackProgress,
+.mdl-slider-background-lower,
+.sliderBubble {
+    background-color: var(--loc-red) !important;
+}
+
+/* ---------- Títulos de seção ---------- */
+.sectionTitle {
+    font-weight: 700;
+    letter-spacing: -.01em;
+    color: var(--loc-text);
+}
+
+/* ---------- Menu lateral ---------- */
+.mainDrawer, .MuiDrawer-paper {
+    background-color: var(--loc-panel) !important;
+}
+.navMenuOption-selected,
+.Mui-selected.MuiListItemButton-root {
+    background: linear-gradient(90deg, var(--loc-red-soft), transparent) !important;
+    box-shadow: inset 3px 0 0 var(--loc-red);
+    color: var(--loc-text) !important;
+}
+
+/* ---------- Formulários ---------- */
+.emby-input, .emby-textarea, .emby-select-withcolor {
+    border-radius: .55em !important;
+}
+.emby-input:focus, .emby-textarea:focus, .emby-select-withcolor:focus {
+    border-color: var(--loc-red) !important;
+    box-shadow: 0 0 0 3px var(--loc-red-soft);
+}
+.emby-checkbox:checked + span + .checkboxOutline,
+.emby-checkbox:checked + .checkboxOutline {
+    background-color: var(--loc-red) !important;
+    border-color: var(--loc-red) !important;
+}
+.inputLabelFocused, .selectLabelFocused, .textareaLabelFocused { color: var(--loc-red); }
+
+/* ---------- Diálogos ---------- */
+.dialog, .formDialogHeader, .formDialogFooter:not(.formDialogFooter-clear), .actionSheet {
+    background-color: var(--loc-panel) !important;
+}
+.dialog { border-radius: .8em; }
+
+/* ---------- Tela de login ---------- */
+#loginPage .padded-left.padded-right,
+.loginPage .readOnlyContent {
+    max-width: 26em;
+    margin-left: auto;
+    margin-right: auto;
+}
+#loginPage .manualLoginForm,
+.manualLoginForm {
+    background: rgba(23, 25, 31, .78);
+    border: 1px solid var(--loc-line);
+    border-radius: 1em;
+    padding: 1.6em 1.6em .8em;
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+}
+.disclaimerContainer, .loginDisclaimer {
+    color: var(--loc-text-2);
+    text-align: center;
+}
+
+/* ---------- Player ---------- */
+.osdControls .sliderBubble,
+.videoOsdBottom .emby-slider::-webkit-slider-thumb { background: var(--loc-red); }
+.upNextDialog-countdownText { color: var(--loc-red); }
+
+/* Logo grande acima do formulário de login */
+#loginPage .manualLoginForm::before,
+.loginPage .manualLoginForm::before {
+    content: "";
+    display: block;
+    height: 3.4em;
+    margin: .2em auto 1.2em;
+    background: url("/web/locadora/img/banner-light.png") center / contain no-repeat;
+}
+
+/* Capas genéricas (biblioteca sem imagem): tons da marca em vez do azul do Jellyfin */
+.defaultCardBackground1 { background-color: #3A1A16 !important; }
+.defaultCardBackground2 { background-color: #2A1D2E !important; }
+.defaultCardBackground3 { background-color: #1D2A33 !important; }
+.defaultCardBackground4 { background-color: #33261A !important; }
+.defaultCardBackground5 { background-color: #22242C !important; }
+.defaultCardBackground .cardImageIcon,
+[class*="defaultCardBackground"] .cardImageIcon { color: rgba(229, 66, 43, .85) !important; }
+
+/* Título do login centralizado */
+#loginPage h1, .loginPage h1 { text-align: center; }

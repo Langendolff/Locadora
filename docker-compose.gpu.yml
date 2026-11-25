@@ -1,0 +1,9 @@
+# Aceleração de hardware no Jellyfin (Intel/AMD via VAAPI).
+# O setup.sh inclui este arquivo automaticamente quando existe /dev/dri.
+services:
+  jellyfin:
+    devices:
+      - /dev/dri:/dev/dri
+    group_add:
+      - "${RENDER_GID:-render}"
+      - "${VIDEO_GID:-video}"

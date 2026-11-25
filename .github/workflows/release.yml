@@ -1,0 +1,31 @@
+name: Release
+
+# Publica os pacotes Linux/macOS/Windows quando uma tag vX.Y.Z é enviada:
+#   git tag v1.1.0 && git push origin v1.1.0
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Versão (ex.: v1.1.0)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verifica a sintaxe dos scripts
+        run: |
+          for f in setup.sh change-password.sh scripts/*.sh install/macos/Instalar.command install/macos/Diagnostico.command diagnostico.sh pessoas.sh atualizar.sh limpeza.sh importar.sh; do bash -n "$f"; done
+          python3 -m py_compile scripts/configure.py scripts/tarefas.py scripts/stack/*.py
+      - name: Testes
+        run: python3 -m unittest discover -s tests -v
+      - name: Gera e publica
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/release.sh "${{ inputs.version || github.ref_name }}"

@@ -1,0 +1,26 @@
+LOCADORA - instalação no Windows
+================================
+
+Você precisa de:
+  1. Windows 10 (21H2+) ou 11, com o WSL2:
+       PowerShell como administrador > wsl --install > reinicie o PC
+       (isso instala o Ubuntu; abra-o uma vez e crie seu usuário)
+  2. Docker Desktop: https://www.docker.com/products/docker-desktop/
+       Settings > Resources > WSL integration > ative para o Ubuntu
+  3. Um arquivo WireGuard (.conf) de uma VPN que permita P2P
+       (ProtonVPN pago: account.protonvpn.com > Downloads > WireGuard configuration,
+        servidor P2P, NAT-PMP ligado)
+
+Instalar:
+  Clique duas vezes em Instalar.bat. Ele pede o arquivo .conf, um usuário e uma senha,
+  e configura tudo. A Locadora fica dentro do WSL, em ~/Locadora.
+
+Depois:
+  Pedir filmes e séries:  http://localhost:5055
+  Assistir:               http://localhost:8096
+
+Algo não funciona? Clique duas vezes em Diagnostico.bat: ele confere VPN, disco e serviços
+e diz o que fazer.
+
+Atualizar: baixe a versão nova e rode o Instalar.bat de novo (suas configurações são mantidas).
+Documentação: https://github.com/Langendolff/Locadora
