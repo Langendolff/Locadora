@@ -6,11 +6,13 @@ os pedidos em nome dela, então valem as preferências do ./pessoas.sh (dublado/
 """
 import json
 import os
+import threading
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
 
+from . import youtube
 from .common import Client, JELLYFIN, PASSWORD, SEERR, USER
 from .jellyfin import JF_AUTH
 
@@ -29,10 +31,27 @@ STATUS = {DISPONIVEL: "✅ já está na Locadora", PARCIAL: "✅ parte já está
 AJUDA = ("Mande o nome de um filme ou série que eu procuro. 🎬\n\n"
          "/pedidos  o que você pediu e como está\n"
          "/sair  desliga este Telegram da sua conta")
+AJUDA_ADMIN = ("\n\nSó para o admin:\n"
+               "/youtube <link>  baixa os episódios de um canal ou playlist do YouTube "
+               "(a série precisa estar pedida)\n"
+               "/youtube  o que está baixando do YouTube")
 BOAS_VINDAS = ("Oi! Eu sou o bot da Locadora. 🍿\n\n"
                "Para começar, entre com o mesmo usuário e senha do Jellyfin:\n"
                "/entrar seu_usuario sua_senha\n\n"
                "(Eu apago essa mensagem logo depois, para a senha não ficar no chat.)")
+
+
+FILA = None          # youtube.Fila, criada em rodar()
+YT_PENDENTE = {}     # chat -> {"lista": título, "videos": [...], "serie": dict, "plano": dict}
+
+
+def admin(pessoa, chat):
+    """Quem pode usar /youtube: o chat do TELEGRAM_CHAT_ID ou um admin do Seerr."""
+    return str(chat) == os.environ.get("TELEGRAM_CHAT_ID", "") or bool(pessoa.get("permissions", 0) & 2)
+
+
+def ajuda(pessoa, chat):
+    return AJUDA + (AJUDA_ADMIN if admin(pessoa, chat) else "")
 
 
 def tg(method, **params):
@@ -178,6 +197,74 @@ def pedidos(seerr, pessoa, chat):
     enviar(chat, "Seus pedidos:\n" + "\n".join(linhas))
 
 
+def yt_link(chat, texto):
+    """/youtube <link> [nome da série]: lista o canal numa thread (pode levar um minuto)."""
+    partes = texto.split(maxsplit=2)
+    url = youtube.link_da_lista(partes[1])
+    if not url:
+        return enviar(chat, "Esse link não é do YouTube. Mande o link do canal ou da playlist.")
+    nome = partes[2] if len(partes) > 2 else ""
+    enviar(chat, "🔎 Olhando os vídeos do canal… (canais grandes levam um minuto)")
+
+    def trabalho():
+        try:
+            lista, videos = youtube.listar(url)
+            series = youtube.series_do_sonarr()
+            if nome:
+                serie = youtube.adivinhar_serie(series, nome, [])
+            else:
+                serie = youtube.adivinhar_serie(series, lista, [v.get("title") or "" for v in videos])
+            YT_PENDENTE[str(chat)] = {"lista": lista, "videos": videos}
+            if serie:
+                return yt_mostrar(chat, serie)
+            yt_perguntar_serie(chat, series, f"Achei {len(videos)} vídeos em \"{lista}\".")
+        except Exception as e:
+            print(f"[bot] /youtube {url}: {e}", flush=True)
+            enviar(chat, f"Não consegui ler esse link: {e}")
+    threading.Thread(target=trabalho, daemon=True).start()
+
+
+def yt_perguntar_serie(chat, series, antes):
+    if not series:
+        return enviar(chat, antes + "\nNenhuma série pedida ainda. Peça a série (mande o nome aqui) "
+                      "e depois mande o link de novo.")
+    recentes = sorted(series, key=lambda s: s.get("added") or "", reverse=True)[:10]
+    botoes = [[{"text": s["title"][:60], "callback_data": f"y:s:{s['id']}"}] for s in recentes]
+    enviar(chat, antes + "\nDe qual série são? (se não estiver aqui, peça a série primeiro)",
+           reply_markup={"inline_keyboard": botoes})
+
+
+def yt_mostrar(chat, serie):
+    p = YT_PENDENTE.get(str(chat))
+    if not p:
+        return enviar(chat, "Mande o link de novo: /youtube <link>")
+    plano = youtube.planejar(serie, p["lista"], p["videos"])
+    p.update(serie=serie, plano=plano)
+    botoes = [[{"text": "⬇️ Baixar", "callback_data": "y:ok"}] if plano["baixar"] else [],
+              [{"text": "Outra série", "callback_data": "y:outra"}, {"text": "Cancelar", "callback_data": "y:no"}]]
+    enviar(chat, youtube.resumo(serie, plano), reply_markup={"inline_keyboard": [b for b in botoes if b]})
+
+
+def yt_botao(chat, acao):
+    p = YT_PENDENTE.get(str(chat))
+    if acao == "no":
+        YT_PENDENTE.pop(str(chat), None)
+        return enviar(chat, "Cancelado.")
+    if not p:
+        return enviar(chat, "Isso já expirou. Mande o link de novo: /youtube <link>")
+    if acao == "outra":
+        return yt_perguntar_serie(chat, youtube.series_do_sonarr(), "")
+    if acao.startswith("s:"):
+        serie = next((s for s in youtube.series_do_sonarr() if str(s["id"]) == acao[2:]), None)
+        return yt_mostrar(chat, serie) if serie else enviar(chat, "Essa série não está mais no Sonarr.")
+    if acao == "ok" and p.get("plano", {}).get("baixar"):
+        FILA.adicionar(chat, p["serie"], p["plano"])
+        YT_PENDENTE.pop(str(chat), None)
+        n = len(p["plano"]["baixar"])
+        return enviar(chat, f"⬇️ Baixando {n} episódio(s) de {p['serie']['title']}, um por vez. "
+                      "Aviso aqui quando terminar. Para ver como está: /youtube")
+
+
 def tratar(seerr, upd):
     if "callback_query" in upd:
         q = upd["callback_query"]
@@ -186,9 +273,11 @@ def tratar(seerr, upd):
         pessoa = seerr.pessoa_do_chat(chat)
         if not pessoa:
             return enviar(chat, BOAS_VINDAS)
-        _, tipo, tmdb = q.get("data", "p:movie:0").split(":")
         tg("editMessageReplyMarkup", chat_id=chat, message_id=q["message"]["message_id"],
            reply_markup={"inline_keyboard": []})
+        if q.get("data", "").startswith("y:"):
+            return yt_botao(chat, q["data"][2:]) if admin(pessoa, chat) else None
+        _, tipo, tmdb = q.get("data", "p:movie:0").split(":")
         return pedir(seerr, pessoa, chat, tipo, tmdb)
 
     msg = upd.get("message") or {}
@@ -212,18 +301,20 @@ def tratar(seerr, upd):
         u = entrar(seerr, chat, partes[1], partes[2])
         if not u:
             return enviar(chat, "Usuário ou senha não conferem. É o mesmo login do Jellyfin.")
-        return enviar(chat, f"Pronto, {u.get('displayName') or partes[1]}! 🎉\n\n" + AJUDA)
+        return enviar(chat, f"Pronto, {u.get('displayName') or partes[1]}! 🎉\n\n" + ajuda(u, chat))
 
     pessoa = seerr.pessoa_do_chat(chat)
     if cmd in ("/start", "/ajuda", "/help") or not pessoa:
-        return enviar(chat, (AJUDA if pessoa else BOAS_VINDAS))
+        return enviar(chat, (ajuda(pessoa, chat) if pessoa else BOAS_VINDAS))
     if cmd == "/sair":
         seerr.ligar(pessoa["id"], "")
         return enviar(chat, "Desliguei este Telegram da sua conta. Para voltar: /entrar")
     if cmd == "/pedidos":
         return pedidos(seerr, pessoa, chat)
+    if cmd == "/youtube" and admin(pessoa, chat):
+        return yt_link(chat, texto) if len(texto.split()) > 1 else enviar(chat, FILA.situacao())
     if cmd:
-        return enviar(chat, AJUDA)
+        return enviar(chat, ajuda(pessoa, chat))
     return buscar(seerr, pessoa, chat, texto)
 
 
@@ -236,6 +327,8 @@ def rodar():
         {"command": "sair", "description": "desligar este Telegram da sua conta"},
     ])
     print(f"[bot] @{me['username']} no ar", flush=True)
+    global FILA
+    FILA = youtube.Fila(avisar=enviar)
     seerr, offset = None, None
     while True:
         try:

@@ -52,6 +52,39 @@ entra pelo `/entrar` já podendo pedir, com aprovação automática.
 
 O bot roda no serviço `tarefas` (`docker compose logs tarefas`).
 
+### Episódios do YouTube (só admin)
+
+Algumas novelas e séries saem completas e dubladas em canais oficiais do YouTube antes de
+aparecer em torrent. O admin (um admin do Seerr, ou o chat do `TELEGRAM_CHAT_ID`) manda:
+
+| Comando | O que faz |
+|---|---|
+| `/youtube <link>` | lê o canal ou playlist e mostra o que vai baixar, com botão para confirmar |
+| `/youtube <link> <série>` | o mesmo, dizendo de qual série é (quando o bot não adivinha) |
+| `/youtube` | o que está baixando do YouTube agora |
+
+A série precisa estar pedida antes (no Seerr ou mandando o nome ao bot). O bot fica só com os
+**episódios completos**: cenas, chamadas e shorts ficam de fora. A numeração sai do título
+(`S02E05`, `#S2EP36`, `Episódio 5 (Temporada 2)`…), e um vídeo sem temporada no título fica de
+fora se o canal misturar temporadas. Quando o mesmo episódio aparece mais de uma vez, ele
+prefere o dublado. Vídeos só para membros do canal não são baixados: o bot avisa quais são
+para você mandar o link de novo quando forem liberados.
+
+Os downloads são feitos um por vez com o `yt-dlp`, em até 1080p H.264, que o Jellyfin toca
+sem converter. Cada arquivo vai para o Sonarr como importação manual, com o episódio, a
+qualidade (WEB-DL) e o idioma (dublado → Português do Brasil) já definidos. O Sonarr renomeia,
+põe na pasta da série e avisa o Jellyfin. A fila fica salva em `config/tarefas/youtube.json`
+e continua de onde parou se o serviço reiniciar. O `yt-dlp` se atualiza a cada início do serviço.
+
+Se o YouTube recusar por excesso de pedidos ("confirm you're not a bot", HTTP 429), a fila
+**pausa** (30 min, dobrando até 4h) e tenta de novo o mesmo episódio; o bot avisa ao pausar e
+ao voltar. Se o bloqueio não passar, exporte os cookies de um navegador logado no YouTube
+(formato Netscape, por exemplo com a extensão "Get cookies.txt LOCALLY") para
+`config/tarefas/youtube-cookies.txt`: o `yt-dlp` passa a usá-los. Prefira uma conta secundária.
+
+Os downloads do YouTube **não passam pela VPN**, ao contrário dos torrents. Baixar vídeos fora
+do app vai contra os termos de uso do YouTube: use só com canais oficiais e para assistir em casa.
+
 ## Assistir de fora de casa (Tailscale)
 
 O Tailscale cria uma rede privada entre os seus aparelhos. Nada da Locadora fica aberto para a

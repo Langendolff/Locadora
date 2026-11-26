@@ -135,7 +135,8 @@ mkdir -p config/{gluetun,deluge,prowlarr,radarr,sonarr,bazarr,jellyfin,seerr,tar
 
 # ---------- Subir ----------
 say "Baixando imagens e subindo containers..."
-dc pull -q
+dc pull -q --ignore-buildable
+dc build -q tarefas
 dc up -d --remove-orphans --wait
 
 say "Verificando a VPN..."

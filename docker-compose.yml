@@ -170,7 +170,11 @@ services:
 
   # ---------- Tarefas automáticas: bot do Telegram e limpeza (ligadas pelo .env) ----------
   tarefas:
-    image: python:3.13-alpine
+    build:
+      context: ./scripts
+      dockerfile: tarefas.Dockerfile
+    image: locadora-tarefas
+    pull_policy: build
     container_name: tarefas
     restart: unless-stopped
     init: true
@@ -179,9 +183,10 @@ services:
       PYTHONUNBUFFERED: "1"
     volumes:
       - ./scripts:/scripts:ro
-      - ./config/tarefas:/estado        # o que já foi avisado
+      - ./config/tarefas:/estado        # o que já foi avisado, fila do YouTube
+      - ${DATA_ROOT:-./data}:/data      # downloads do YouTube (o Sonarr importa de /data/youtube)
     command: ["python", "/scripts/tarefas.py"]
-    depends_on: [seerr, jellyfin, radarr]
+    depends_on: [seerr, jellyfin, radarr, sonarr]
 
   # ---------- Configuração automática (roda só via ./setup.sh) ----------
   setup:

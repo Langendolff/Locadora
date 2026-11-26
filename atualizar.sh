@@ -95,7 +95,8 @@ if [[ -d .git && -z ${LOCADORA_ATUALIZADO:-} ]] && command -v git >/dev/null 2>&
 fi
 
 say "Baixando as imagens novas (os serviços continuam no ar)..."
-dc pull -q
+dc pull -q --ignore-buildable
+dc build -q --pull tarefas     # imagem local do serviço "tarefas" (yt-dlp, ffmpeg)
 backup
 say "Subindo a versão nova..."
 dc up -d --remove-orphans --wait >/dev/null 2>&1 || dc up -d --remove-orphans --wait

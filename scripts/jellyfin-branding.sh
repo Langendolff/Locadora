@@ -14,6 +14,7 @@ swap banner-light.png     'banner-light.*.png'
 swap banner-dark.png      'banner-dark.*.png'
 swap icon-transparent.png 'icon-transparent.*.png'
 swap touchicon180.png     'touchicon.*.png'
+swap touchicon144.png     'touchicon144.*.png'
 swap favicon.ico          'favicon.*.ico'
 for s in 72 114 144 512; do swap touchicon$s.png "favicons/touchicon$s.png"; done
 swap touchicon180.png     'favicons/touchicon.png'
@@ -21,5 +22,9 @@ swap touchicon180.png     'favicons/touchicon.png'
 # Nome na aba do navegador e no app instalado
 sed -i 's|<title>Jellyfin</title>|<title>Locadora</title>|' $WEB/index.html
 sed -i -E 's/"(short_)?name": *"Jellyfin"/"\1name": "Locadora"/; s/"(theme|background)_color": *"#101010"/"\1_color": "#0F1014"/' $WEB/manifest.json
+
+# Nome padrão no JS (título da aba antes de a API responder e nome no menu se o servidor não
+# tiver nome): só as formas `="Jellyfin",` e `||"Jellyfin"`, para não mexer em mais nada
+grep -lE '(="|\|\|")Jellyfin"' $WEB/*.js 2>/dev/null | xargs -r sed -i -E 's/="Jellyfin",/="Locadora",/g; s/\|\|"Jellyfin"/||"Locadora"/g'
 
 echo "[locadora] marca aplicada na interface web"

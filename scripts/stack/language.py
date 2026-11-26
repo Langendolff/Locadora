@@ -21,7 +21,9 @@ PT_TITLE = (r"\b(dublado|dublagem|nacional"
 AUDIO_TAG = r"\[audio-\[[^\]]*\bPT(-?BR)?\b"
 DUAL_TITLE = (r"^(?!.*\b(hindi|tamil|telugu|kannada|malayalam|latino|spanish|espa[nñ]ol|castellano|"
               r"russian|rus|ita|italian|french|vff|vostfr|ger|german|korean|kor|chinese|chi|japanese|jap|"
-              r"turko?|turkish|tur|pol|polish|cze|czech|hun|ukr|arabic|ara|nordic|swe|nor|dan|fin)\b)"
+              r"turko?|turkish|tur|pol|polish|cze|czech|hun|ukr|arabic|ara|nordic|swe|nor|dan|fin|"
+              # "Dual audio" do RiffTrax é o original + uma faixa de comentário cômico em inglês
+              r"rifftrax|commentary)\b)"
               r".*\bdual\b")
 
 

@@ -17,6 +17,7 @@
 ├── scripts/
 │   ├── configure.py         # ponto de entrada da configuração automática
 │   ├── tarefas.py           # serviço "tarefas": bot do Telegram + limpeza diária
+│   ├── tarefas.Dockerfile   # imagem do "tarefas": Python + yt-dlp, ffmpeg e deno
 │   ├── tailscale-serve.json # o que o Tailscale publica (Jellyfin :443, Seerr :8443)
 │   ├── deluge-portforward.sh# serviço no container do Deluge: aplica a porta da VPN
 │   ├── jellyfin-branding.sh # inicialização do Jellyfin: logo e ícones da Locadora
@@ -33,6 +34,7 @@
 │       ├── diagnostico.py   #   verificações por API do ./diagnostico.sh
 │       ├── pessoas.py       #   usado por pessoas.sh
 │       ├── telegram.py      #   bot de pedidos
+│       ├── youtube.py       #   /youtube do bot: escolhe episódios, baixa e importa no Sonarr
 │       ├── limpeza.py       #   regra e remoção da limpeza automática
 │       ├── importar.py      #   usado por importar.sh
 │       └── passwd.py        #   usado por change-password.sh

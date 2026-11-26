@@ -47,6 +47,9 @@ NAO_PORTUGUES = [
     # Dual com outro idioma
     "Dune.Part.Two.2024.1080p.WEB-DL.Dual.Audio.Hindi.English",
     "Dune.Part.Two.2024.1080p.dual.audio.latino",
+    # Dual com faixa de comentário (RiffTrax), não dublagem
+    "Predator (1987) Ultimate Hunter Edition RiffTrax dual audio 720p.10bit.BluRay.x265-budgetbits",
+    "PREDATOR [1987] RIFFTRAX DUAL AUDIO",
     # Dublagem em inglês/japonês (anime)
     "Frieren S01E01 1080p English Dub",
     "Frieren S01E01 1080p Dub Eng",
