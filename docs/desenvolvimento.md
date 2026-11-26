@@ -18,6 +18,10 @@
 │   ├── configure.py         # ponto de entrada da configuração automática
 │   ├── tarefas.py           # serviço "tarefas": bot do Telegram + limpeza diária
 │   ├── tarefas.Dockerfile   # imagem do "tarefas": Python + yt-dlp, ffmpeg e deno
+│   ├── painel.py            # serviço "painel": interface web
+│   ├── painel/              # HTML, CSS e JS do painel (sem dependências)
+│   ├── operador.py          # serviço "operador": o que o painel faz no Docker e no .env
+│   ├── operador.Dockerfile  # imagem do operador e das tarefas: Python + bash, docker, git
 │   ├── tailscale-serve.json # o que o Tailscale publica (Jellyfin :443, Seerr :8443)
 │   ├── deluge-portforward.sh# serviço no container do Deluge: aplica a porta da VPN
 │   ├── jellyfin-branding.sh # inicialização do Jellyfin: logo e ícones da Locadora
@@ -31,13 +35,14 @@
 │       ├── prowlarr.py
 │       ├── jellyfin.py      #   + avisos do Radarr/Sonarr ao Jellyfin
 │       ├── seerr.py
-│       ├── diagnostico.py   #   verificações por API do ./diagnostico.sh
-│       ├── pessoas.py       #   usado por pessoas.sh
+│       ├── diagnostico.py   #   verificações por API do ./diagnostico.sh e do painel
+│       ├── pessoas.py       #   usado por pessoas.sh e pelo painel
 │       ├── telegram.py      #   bot de pedidos
 │       ├── youtube.py       #   /youtube do bot: escolhe episódios, baixa e importa no Sonarr
 │       ├── limpeza.py       #   regra e remoção da limpeza automática
 │       ├── importar.py      #   usado por importar.sh
-│       └── passwd.py        #   usado por change-password.sh
+│       ├── passwd.py        #   usado por change-password.sh
+│       └── envfile.py       #   campos do .env que o painel pode mudar, validação e gravação
 ├── tests/                   # testes sem a stack (python3 -m unittest discover -s tests)
 ├── install/                 # instaladores de cada sistema (entram nos pacotes de release)
 ├── indexers/                # seus indexadores (fora do git; modelo: public.example.txt)
@@ -77,6 +82,40 @@ push e antes de cada release (`scripts/release.sh` recusa gerar pacotes se falha
 - `tests/test_idioma.py`: títulos que devem (ou não) contar como áudio em português. Ao mexer nas
   regex de `scripts/stack/language.py`, acrescente ali o título que motivou a mudança.
   Para conferir no Radarr de verdade: `GET /api/v3/parse?title=<título>` lista os formatos que casam.
+
+## Painel
+
+Dois serviços, para o que fica exposto na rede não ter acesso ao Docker:
+
+```
+navegador ──▶ painel (8585, login) ──▶ operador (8586, só rede interna, OPERADOR_TOKEN)
+                 │                        │  socket do Docker, pasta da Locadora no mesmo caminho do host
+                 ▼                        ▼
+         APIs dos serviços         docker inspect/exec · .env · container avulso "locadora-tarefa"
+         (pessoas, diagnóstico)       que roda setup.sh / atualizar.sh / change-password.sh
+```
+
+- **`painel`** (`scripts/painel.py`): servidor HTTP da biblioteca padrão. Pessoas e o diagnóstico
+  "por dentro" chamam `scripts/stack/` como os scripts de terminal; o resto ele repassa ao operador.
+  Tela nova = função em `stack/` que devolve dados (em vez de só imprimir) + uma rota.
+- **`operador`** (`scripts/operador.py`): o único com o socket do Docker. Faz uma lista fixa de
+  coisas (veja o topo do arquivo); campos do `.env` só os de `stack/envfile.py`. Começa como root
+  só para descobrir o grupo do socket e roda como `PUID:PGID` + esse grupo (no Docker Desktop, onde
+  o grupo não escreve no socket, fica root). Liga pelo perfil `painel` do compose, que o `setup.sh`
+  põe em `COMPOSE_PROFILES` (a não ser com `PAINEL_MANUTENCAO=off`).
+- **Tarefas** rodam num container avulso (`docker run`, fora do compose) com a imagem do operador,
+  a pasta no mesmo caminho e `LOCADORA_PELO_PAINEL=1`. Fora do compose porque o `atualizar.sh` para
+  e recria os serviços do projeto. A saída fica no container (`docker logs locadora-tarefa`) até a
+  próxima tarefa. Com `LOCADORA_PELO_PAINEL=1`, o `setup.sh` não confere `/dev/net/tun` nem a GPU
+  (mantém o que está no `.env`) e o `atualizar.sh` segue sem o `git pull` se ele falhar.
+- **Login:** `STACK_USER`/`STACK_PASSWORD`. A sessão é um cookie assinado (`HttpOnly`,
+  `SameSite=Strict`) com chave derivada de `PAINEL_SEGREDO` + senha: sobrevive ao painel ser
+  recriado e cai quando a senha muda.
+- **Pedidos que mudam algo** são `POST` com JSON e o cabeçalho `X-Locadora: 1` (contra CSRF).
+- **No front:** todo texto vindo da API entra por `textContent`; a CSP não permite script inline.
+
+Testar sem a stack: `python3 -m unittest tests.test_painel tests.test_operador`.
+Com a stack: `docker compose up -d --build painel operador`.
 
 ## Adicionar um serviço
 

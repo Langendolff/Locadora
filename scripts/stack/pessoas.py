@@ -133,15 +133,24 @@ def _escolher(pergunta, opcoes, padrao):
         print(f"  escolha uma de: {', '.join(opcoes)}")
 
 
-def listar():
+def lista():
+    """[{nome, audio, legenda, admin, no_seerr}] de cada pessoa (usado também pelo painel)."""
     casa = Casa()
     orig_ids = {pid for _, _, pid in casa.servicos()}
-    print(f"{'Pessoa':20} {'Áudio':10} Legenda")
+    out = []
     for u in casa.jf_users():
         cfg = casa.jf.get(f"/Users/{u['Id']}")["Configuration"]
         su = casa.seerr_user(u, criar=False)
-        extra = "" if su else "   (ainda não entrou no Seerr)"
-        print(f"{u['Name']:20} {casa.audio_de(su, orig_ids):10} {legenda_de(cfg)}{extra}")
+        out.append({"nome": u["Name"], "audio": casa.audio_de(su, orig_ids), "legenda": legenda_de(cfg),
+                    "admin": bool(u.get("Policy", {}).get("IsAdministrator")), "no_seerr": bool(su)})
+    return out
+
+
+def listar():
+    print(f"{'Pessoa':20} {'Áudio':10} Legenda")
+    for p in lista():
+        extra = "" if p["no_seerr"] else "   (ainda não entrou no Seerr)"
+        print(f"{p['nome']:20} {p['audio']:10} {p['legenda']}{extra}")
 
 
 def nova(nome, senha, audio, legenda):

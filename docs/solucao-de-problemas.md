@@ -59,8 +59,13 @@ O `./atualizar.sh` faz backup das configurações antes de atualizar. Para volta
 ./atualizar.sh --restaurar backups/locadora-AAAAMMDD-HHMMSS.tar.gz
 ```
 
-As configurações de antes da restauração ficam em `config.antes-…/`, por segurança.
+As configurações de antes da restauração ficam em `config.antes-…/`, por segurança (alguns
+arquivos lá dentro são do root: para apagar a pasta, `sudo rm -rf config.antes-…`).
 Filmes e séries não entram no backup nem são tocados.
+
+As capas e imagens do Jellyfin também não entram (eram quase todo o tamanho do backup). Se depois
+de restaurar algum filme aparecer sem capa: Jellyfin → Painel → Bibliotecas → ⋮ na biblioteca →
+**Atualizar metadados** → "Procurar metadados ausentes".
 
 ## Disco cheio
 

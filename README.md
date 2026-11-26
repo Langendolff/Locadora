@@ -46,7 +46,7 @@ Séries são acompanhadas: episódios novos chegam sozinhos.
   qualquer momento.
 - **Português primeiro.** Prioriza versões dubladas, recusa dublagens em outros idiomas e
   troca sozinho para a dublada quando ela aparece. [Detalhes](docs/idioma-e-legendas.md)
-- **Cada pessoa do seu jeito.** `./pessoas.sh` cadastra a família; cada um escolhe dublado ou original
+- **Cada pessoa do seu jeito.** O Painel (ou `./pessoas.sh`) cadastra a família; cada um escolhe dublado ou original
   e a legenda (pt-BR, inglês ou nenhuma), e os pedidos dela seguem essa escolha.
 - **Catálogo do Brasil.** "Em alta" e "onde assistir" (Netflix BR, Globoplay…) com dados do Brasil.
 - **Legendas que batem.** pt-BR só quando o áudio não é português, sincronizadas com o áudio do arquivo.
@@ -105,8 +105,9 @@ vem com nenhum. No Prowlarr (http://localhost:9696) → Indexers → Add Indexer
 | Prowlarr | http://localhost:9696 | Indexadores |
 | Bazarr | http://localhost:6767 | Legendas |
 | Deluge | http://localhost:8112 | Downloads |
+| **Painel** | http://localhost:8585 | Pessoas, diagnóstico, configurações, atualizar e backups, pelo navegador |
 
-No dia a dia, você só usa os dois primeiros. Em outros aparelhos da rede, troque `localhost` pelo
+No dia a dia, você só usa os dois primeiros (e o Painel para cadastrar alguém). Em outros aparelhos da rede, troque `localhost` pelo
 IP do servidor.
 
 ## Comandos
@@ -126,6 +127,10 @@ entre na pasta com `cd ~/Locadora`.
 | `./change-password.sh` | Troca a senha do admin em todos os serviços de uma vez |
 
 ### Pessoas e filmes
+
+O **Painel** (http://localhost:8585, mesmo login dos serviços) faz pelo navegador o mesmo que
+`pessoas.sh`, `diagnostico.sh`, `atualizar.sh` (atualizar, backup, restaurar) e `change-password.sh`,
+e edita os campos do `.env` que você preenche.
 
 | Comando | O que faz |
 |---|---|

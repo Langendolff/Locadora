@@ -17,23 +17,38 @@ BAZARR = "http://bazarr:6767"
 
 
 class Resultado:
-    def __init__(self):
+    """Imprime cada verificação (terminal) e guarda em `itens` (painel)."""
+
+    _MARCA = {"ok": "\033[32m✓\033[0m", "aviso": "\033[33m!\033[0m", "erro": "\033[31m✗\033[0m"}
+
+    def __init__(self, imprimir=True):
         self.erros = self.avisos = 0
+        self.imprimir = imprimir
+        self.itens = []  # {"secao", "nivel": ok|aviso|erro, "msg", "dica"}
+        self._secao = ""
+
+    def secao(self, nome):
+        self._secao = nome
+        if self.imprimir:
+            print(nome, flush=True)
+
+    def _add(self, nivel, msg, dica=None):
+        self.itens.append({"secao": self._secao, "nivel": nivel, "msg": msg, "dica": dica})
+        if self.imprimir:
+            print(f"  {self._MARCA[nivel]} {msg}", flush=True)
+            if dica:
+                print(f"      → {dica}", flush=True)
 
     def ok(self, msg):
-        print(f"  \033[32m✓\033[0m {msg}", flush=True)
+        self._add("ok", msg)
 
     def aviso(self, msg, dica=None):
         self.avisos += 1
-        print(f"  \033[33m!\033[0m {msg}", flush=True)
-        if dica:
-            print(f"      → {dica}", flush=True)
+        self._add("aviso", msg, dica)
 
     def erro(self, msg, dica=None):
         self.erros += 1
-        print(f"  \033[31m✗\033[0m {msg}", flush=True)
-        if dica:
-            print(f"      → {dica}", flush=True)
+        self._add("erro", msg, dica)
 
 
 def _quieto(c, path):
@@ -224,18 +239,57 @@ def flaresolverr(r):
                 "indexadores com Cloudflare vão falhar. Veja: docker compose logs flaresolverr")
 
 
-def diagnostico():
-    r = Resultado()
-    porta_vpn = os.environ.get("FORWARDED_PORT", "").strip()
-    print("Downloads")
+def disco(r, data="/data"):
+    """Espaço livre e hardlink (o ./diagnostico.sh faz o mesmo no host; aqui é para o painel)."""
+    try:
+        st = os.statvfs(data)
+    except OSError:
+        return r.erro(f"a pasta de mídia não está acessível ({data})",
+                      "confira DATA_ROOT no .env e se o disco está montado")
+    livre = st.f_bavail * st.f_frsize // 1024**3
+    if livre < 10:
+        r.erro(f"só {livre} GB livres", "apague filmes/séries que já viu (no Radarr/Sonarr, para não baixar de novo)")
+    elif livre < 50:
+        r.aviso(f"{livre} GB livres (um filme 1080p ocupa 2 a 15 GB)", "considere liberar espaço")
+    else:
+        r.ok(f"{livre} GB livres")
+    try:
+        if os.stat(f"{data}/torrents").st_dev != os.stat(f"{data}/media").st_dev:
+            r.aviso("downloads e biblioteca estão em discos diferentes",
+                    "cada filme ocupa o dobro do espaço (sem hardlink). Deixe torrents/ e media/ no mesmo disco")
+    except OSError:
+        pass
+
+
+def porta_encaminhada(r, arquivo="/gluetun/forwarded_port"):
+    """Porta que a VPN abriu ('' se não abriu ou se o port forwarding está desligado)."""
+    if os.environ.get("VPN_PORT_FORWARDING") != "on":
+        return ""
+    try:
+        porta = "".join(c for c in open(arquivo).read() if c.isdigit())
+    except OSError:
+        porta = ""
+    if porta:
+        r.ok(f"porta {porta} aberta pela VPN (mais fontes, downloads mais rápidos)")
+    else:
+        r.aviso("a VPN não abriu porta (port forwarding)",
+                "os downloads funcionam, mas mais devagar. Confira se o .conf é de um servidor P2P com NAT-PMP")
+    return porta
+
+
+def diagnostico(r=None, porta_vpn=None):
+    r = r or Resultado()
+    if porta_vpn is None:
+        porta_vpn = os.environ.get("FORWARDED_PORT", "").strip()
+    r.secao("Downloads")
     deluge(r, porta_vpn)
-    print("Busca")
+    r.secao("Busca")
     prowlarr(r)
     flaresolverr(r)
-    print("Filmes e séries")
+    r.secao("Filmes e séries")
     arr(r, "Radarr", RADARR)
     arr(r, "Sonarr", SONARR)
-    print("Assistir e pedir")
+    r.secao("Assistir e pedir")
     jellyfin(r)
     seerr(r)
     bazarr(r)

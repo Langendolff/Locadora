@@ -25,3 +25,6 @@ docker compose ${PROJ:+-p "$PROJ"} run --rm -e NEW_STACK_PASSWORD="$new" setup p
 KEY=STACK_PASSWORD VAL="'$new'" awk 'BEGIN{FS=OFS="="} $1=="NEW_STACK_PASSWORD"{next} $1==ENVIRON["KEY"]{print $1, ENVIRON["VAL"]; next} {print}' .env > .env.tmp
 cat .env.tmp > .env && rm .env.tmp
 echo ".env atualizado."
+# Serviços que leem a senha do .env ao iniciar: recria para pegarem a nova
+docker compose ${PROJ:+-p "$PROJ"} up -d tarefas painel >/dev/null 2>&1 \
+  || echo "AVISO: reinicie o tarefas e o painel: docker compose up -d tarefas painel"

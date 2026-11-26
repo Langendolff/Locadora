@@ -22,7 +22,7 @@ jobs:
       - name: Verifica a sintaxe dos scripts
         run: |
           for f in setup.sh change-password.sh scripts/*.sh install/macos/Instalar.command install/macos/Diagnostico.command diagnostico.sh pessoas.sh atualizar.sh limpeza.sh importar.sh; do bash -n "$f"; done
-          python3 -m py_compile scripts/configure.py scripts/tarefas.py scripts/stack/*.py
+          python3 -m py_compile scripts/configure.py scripts/tarefas.py scripts/painel.py scripts/operador.py scripts/stack/*.py
       - name: Testes
         run: python3 -m unittest discover -s tests -v
       - name: Gera e publica

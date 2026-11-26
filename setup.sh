@@ -41,13 +41,16 @@ port_in_use() {
 command -v docker >/dev/null || die "Docker não encontrado. Instale o Docker (Linux) ou o Docker Desktop (macOS/Windows)."
 docker info >/dev/null 2>&1 || die "o Docker não está rodando. Inicie o Docker (ou abra o Docker Desktop) e tente de novo."
 docker compose version >/dev/null 2>&1 || die "Plugin 'docker compose' não encontrado."
+# Rodando pelo painel (tarefa do operador, dentro de um container): /dev do host não é visível
+# aqui, então tun e GPU ficam como a última instalação pelo terminal deixou.
+PELO_PAINEL=${LOCADORA_PELO_PAINEL:-}
 # Docker nativo no Linux: /dev/net/tun e GPU vêm do próprio sistema.
 # Docker Desktop (macOS/Windows/Linux): roda numa VM que já tem tun e não repassa GPU.
 if docker info --format '{{.OperatingSystem}}' 2>/dev/null | grep -qi "docker desktop"; then
   NATIVE=0
 else
   NATIVE=1
-  [[ -e /dev/net/tun ]] || die "/dev/net/tun não existe (necessário pro Gluetun). Rode: sudo modprobe tun"
+  [[ -n $PELO_PAINEL || -e /dev/net/tun ]] || die "/dev/net/tun não existe (necessário pro Gluetun). Rode: sudo modprobe tun"
 fi
 
 # Usa o projeto compose dos containers que já existem (instalações antigas podem ter outro nome)
@@ -100,7 +103,9 @@ for k in RADARR_API_KEY SONARR_API_KEY PROWLARR_API_KEY; do
   fill "$k" "$(random_key)"
 done
 
-if [[ $NATIVE == 1 && -d /dev/dri ]]; then
+if [[ -n $PELO_PAINEL ]]; then
+  :  # mantém HAS_GPU e COMPOSE_FILE
+elif [[ $NATIVE == 1 && -d /dev/dri ]]; then
   set_env HAS_GPU 1
   set_env COMPOSE_FILE docker-compose.yml:docker-compose.gpu.yml
   fill RENDER_GID "$(gid_of render || true)"
@@ -112,15 +117,21 @@ else
   set_env COMPOSE_FILE docker-compose.yml
 fi
 
-# Acesso de fora de casa: o container do Tailscale só sobe com a chave no .env
-if [[ -n "$(get_env TS_AUTHKEY)" ]]; then set_env COMPOSE_PROFILES remoto; else set_env COMPOSE_PROFILES ""; fi
+# Perfis do compose: "painel" liga o operador (configurações e manutenção pelo painel; desliga com
+# PAINEL_MANUTENCAO=off) e "remoto" o Tailscale (só com a chave no .env)
+perfis=""
+[[ $(get_env PAINEL_MANUTENCAO) == off ]] || perfis=painel
+[[ -n "$(get_env TS_AUTHKEY)" ]] && perfis="${perfis:+$perfis,}remoto"
+set_env COMPOSE_PROFILES "$perfis"
+fill OPERADOR_TOKEN "$(random_key)$(random_key)"
+fill PAINEL_SEGREDO "$(random_key)$(random_key)"
 
 # ---------- Portas ----------
-for svc in JELLYFIN:8096 SEERR:5055 RADARR:7878 SONARR:8989 PROWLARR:9696 DELUGE:8112 BAZARR:6767; do
+for svc in JELLYFIN:8096 SEERR:5055 RADARR:7878 SONARR:8989 PROWLARR:9696 DELUGE:8112 BAZARR:6767 PAINEL:8585; do
   fill "${svc%%:*}_PORT" "${svc##*:}"
 done
 if [[ -z "$(dc ps -q 2>/dev/null)" ]]; then
-  for k in JELLYFIN SEERR RADARR SONARR PROWLARR DELUGE BAZARR; do
+  for k in JELLYFIN SEERR RADARR SONARR PROWLARR DELUGE BAZARR PAINEL; do
     port=$(get_env "${k}_PORT")
     if port_in_use "$port"; then
       die "a porta $port (${k}_PORT) já está em uso. Mude ${k}_PORT no .env."
@@ -132,11 +143,15 @@ fi
 data=$(get_env DATA_ROOT)
 mkdir -p config/{gluetun,deluge,prowlarr,radarr,sonarr,bazarr,jellyfin,seerr,tarefas,tailscale} \
          "$data"/torrents/{movies,tv,incomplete} "$data"/media/{movies,tv}
+# Caminhos absolutos para o operador (ele monta a pasta no mesmo caminho do host)
+set_env LOCADORA_DIR "$(pwd -P)"
+set_env DATA_ROOT_ABS "$(cd "$data" && pwd -P)"
 
 # ---------- Subir ----------
 say "Baixando imagens e subindo containers..."
 dc pull -q --ignore-buildable
 dc build -q tarefas
+[[ $(get_env COMPOSE_PROFILES) == *painel* ]] && dc build -q operador
 dc up -d --remove-orphans --wait
 
 say "Verificando a VPN..."
@@ -172,9 +187,10 @@ Pronto! Acesse:
   Prowlarr  http://localhost:$(p PROWLARR)   <- adicione seus indexadores aqui
   Deluge    http://localhost:$(p DELUGE)
   Bazarr    http://localhost:$(p BAZARR)   (legendas pt-BR)
+  Painel    http://localhost:$(p PAINEL)   (pessoas, diagnóstico, configurações e manutenção)
 Login em todos: $(get_env STACK_USER) / (sua senha do .env)
 ${remoto:+De fora de casa (aparelhos no seu Tailscale):
   Jellyfin  https://$remoto
   Seerr     https://$remoto:8443
-}Cadastrar a família: ./pessoas.sh nova NOME   ·   Algo não funciona? ./diagnostico.sh
+}Cadastrar a família: no Painel ou ./pessoas.sh nova NOME   ·   Algo não funciona? ./diagnostico.sh
 EOF

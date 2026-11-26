@@ -40,8 +40,9 @@ if [[ ! -f .env ]]; then erro "falta o arquivo .env" "rode ./setup.sh"; fim; fi
 
 # ---------- Containers ----------
 secao "Serviços"
-SERVICOS="gluetun deluge prowlarr flaresolverr radarr sonarr bazarr jellyfin seerr tarefas"
+SERVICOS="gluetun deluge prowlarr flaresolverr radarr sonarr bazarr jellyfin seerr tarefas painel"
 [[ -n $(get_env TS_AUTHKEY) ]] && SERVICOS="$SERVICOS tailscale"
+[[ $(get_env COMPOSE_PROFILES) == *painel* ]] && SERVICOS="$SERVICOS operador"
 parados=""
 for s in $SERVICOS; do
   st=$(docker inspect -f '{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{end}}' "$s" 2>/dev/null) \

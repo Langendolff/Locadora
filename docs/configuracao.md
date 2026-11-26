@@ -27,6 +27,11 @@ variáveis novas, o `./setup.sh` as acrescenta ao seu `.env` (vazias) sem mexer 
 | `TELEGRAM_CHAT_ID` | — | Opcional: chat que recebe os avisos gerais (tudo que fica pronto, falhas, limpeza) |
 | `TS_AUTHKEY` | — | Acesso de fora de casa pelo Tailscale ([extras](extras.md#assistir-de-fora-de-casa-tailscale)) |
 | `LIMPEZA_DIAS` | — | Tira filmes que todo mundo viu há este tanto de dias, ex.: `30` ([extras](extras.md#limpeza-automática)) |
+| `PAINEL_MANUTENCAO` | — | `off` deixa o Painel só com pessoas e diagnóstico: sem o serviço `operador`, que tem acesso ao Docker |
+
+Pelo Painel (aba Configurações) dá para mudar o e-mail, as contas de legenda, o Telegram, o
+Tailscale, a limpeza e as portas. Ficam só no arquivo: `STACK_USER`, `DATA_ROOT` e os que o
+`setup.sh` preenche. A senha tem botão próprio, que troca em todos os serviços.
 
 ### Portas no host
 
@@ -39,6 +44,7 @@ variáveis novas, o `./setup.sh` as acrescenta ao seu `.env` (vazias) sem mexer 
 | `PROWLARR_PORT` | 9696 | Prowlarr |
 | `DELUGE_PORT` | 8112 | Deluge |
 | `BAZARR_PORT` | 6767 | Bazarr |
+| `PAINEL_PORT` | 8585 | Painel (pessoas e diagnóstico) |
 
 O FlareSolverr (8191) só escuta em `127.0.0.1`. Se uma porta estiver ocupada, o `setup.sh` avisa.
 

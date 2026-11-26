@@ -188,6 +188,61 @@ services:
     command: ["python", "/scripts/tarefas.py"]
     depends_on: [seerr, jellyfin, radarr, sonarr]
 
+  # ---------- Painel: a Locadora pelo navegador (login do .env); o que mexe no Docker vai pelo operador ----------
+  painel:
+    image: python:3.13-alpine
+    container_name: painel
+    restart: unless-stopped
+    init: true
+    env_file: .env
+    environment:
+      PYTHONUNBUFFERED: "1"
+    ports:
+      - "${PAINEL_PORT:-8585}:8585"
+    volumes:
+      - ./scripts:/scripts:ro
+      - ./assets/logo:/assets/logo:ro
+      - ./config/bazarr/config:/bazarr-config:ro   # API key do Bazarr (legenda em inglês)
+      - ./config/gluetun:/gluetun:ro               # porta aberta pela VPN
+      - ${DATA_ROOT:-./data}:/data:ro              # espaço livre no disco
+    command: ["python", "/scripts/painel.py"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8585/saude', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    depends_on: [seerr, jellyfin, radarr, sonarr]
+
+  # ---------- Operador: o que o painel faz no Docker e no .env (configurações, atualizar, backups) ----------
+  # Único container com o socket do Docker. Sem porta no host: só o painel fala com ele, com o
+  # OPERADOR_TOKEN. A pasta da Locadora entra no MESMO caminho do host, para os scripts e o
+  # docker compose que ele roda enxergarem os caminhos como no terminal. Liga com o perfil
+  # "painel" (o setup.sh põe em COMPOSE_PROFILES; PAINEL_MANUTENCAO=off no .env desliga).
+  operador:
+    build:
+      context: ./scripts
+      dockerfile: operador.Dockerfile
+    image: locadora-operador
+    pull_policy: build
+    container_name: operador
+    restart: unless-stopped
+    init: true
+    profiles: [painel]
+    env_file: .env
+    environment:
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${LOCADORA_DIR:-/locadora-sem-pasta}:${LOCADORA_DIR:-/locadora-sem-pasta}
+    command: ["python", "${LOCADORA_DIR:-/locadora-sem-pasta}/scripts/operador.py"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8586/saude', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
   # ---------- Configuração automática (roda só via ./setup.sh) ----------
   setup:
     image: python:3.13-alpine

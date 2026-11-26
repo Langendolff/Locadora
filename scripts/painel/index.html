@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Painel · Locadora</title>
+<link rel="icon" href="/logo.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/painel.css">
+<script src="/painel.js" defer></script>
+</head>
+<body>
+
+<!-- Login -->
+<main id="tela-login" class="login" hidden>
+  <form id="form-login" class="cartao login-cartao" autocomplete="on">
+    <img src="/logo.svg" alt="" class="login-logo" width="56" height="56">
+    <h1>Painel da Locadora</h1>
+    <p class="sutil">Entre com o mesmo usuário e senha dos serviços.</p>
+    <label>Usuário <input name="usuario" autocomplete="username" required></label>
+    <label>Senha <input name="senha" type="password" autocomplete="current-password" required></label>
+    <p class="erro-form" id="erro-login" role="alert"></p>
+    <button class="botao primario" type="submit">Entrar</button>
+  </form>
+</main>
+
+<!-- Painel -->
+<div id="tela-painel" hidden>
+  <header class="topo">
+    <div class="marca"><img src="/logo.svg" alt="" width="28" height="28"><span>Locadora</span></div>
+    <nav class="abas" role="tablist">
+      <button role="tab" data-aba="pessoas" aria-selected="true">Pessoas</button>
+      <button role="tab" data-aba="diagnostico" aria-selected="false">Diagnóstico</button>
+      <button role="tab" data-aba="config" aria-selected="false">Configurações</button>
+      <button role="tab" data-aba="manutencao" aria-selected="false">Manutenção</button>
+    </nav>
+    <button class="botao fantasma" id="sair">Sair</button>
+  </header>
+
+  <main class="conteudo">
+    <!-- Pessoas -->
+    <section id="aba-pessoas" role="tabpanel">
+      <div class="cabeca">
+        <div>
+          <h2>Pessoas da casa</h2>
+          <p class="sutil">Cada pessoa tem conta no Jellyfin e no Seerr. A preferência vale para os pedidos,
+            a reprodução e as legendas que o Bazarr baixa.</p>
+        </div>
+        <button class="botao primario" id="abrir-nova">+ Nova pessoa</button>
+      </div>
+
+      <form id="form-nova" class="cartao form-nova" hidden autocomplete="off">
+        <h3>Nova pessoa</h3>
+        <div class="grade">
+          <label>Nome <input name="nome" maxlength="64" required></label>
+          <label>Senha <input name="senha" type="password" minlength="4" autocomplete="new-password" required></label>
+          <label>Repita a senha <input name="senha2" type="password" minlength="4" autocomplete="new-password" required></label>
+          <label>Áudio
+            <select name="audio">
+              <option value="dublado">Dublado (PT-BR quando houver)</option>
+              <option value="original">Original</option>
+            </select>
+          </label>
+          <label>Legenda
+            <select name="legenda">
+              <option value="pt-br">Português (BR)</option>
+              <option value="en">Inglês</option>
+              <option value="nenhuma">Nenhuma</option>
+            </select>
+          </label>
+        </div>
+        <p class="erro-form" id="erro-nova" role="alert"></p>
+        <div class="acoes">
+          <button class="botao fantasma" type="button" id="cancelar-nova">Cancelar</button>
+          <button class="botao primario" type="submit">Cadastrar</button>
+        </div>
+      </form>
+
+      <div id="lista-pessoas" class="lista" aria-live="polite"></div>
+    </section>
+
+    <!-- Diagnóstico -->
+    <section id="aba-diagnostico" role="tabpanel" hidden>
+      <div class="cabeca">
+        <div>
+          <h2>Diagnóstico</h2>
+          <p class="sutil">Confere disco, downloads, busca e cada serviço, e diz o que fazer quando algo
+            não está certo. Só lê: não muda nada.</p>
+        </div>
+        <button class="botao primario" id="rodar-diag">Conferir agora</button>
+      </div>
+      <div id="resumo-diag"></div>
+      <div id="resultado-diag" aria-live="polite"></div>
+      <p class="nota" id="nota-diag" hidden>Os containers e o IP de saída da VPN não foram conferidos (o
+        operador não respondeu). Pelo terminal, no servidor: <code>./diagnostico.sh</code></p>
+    </section>
+
+    <!-- Configurações -->
+    <section id="aba-config" role="tabpanel" hidden>
+      <div class="cabeca">
+        <div>
+          <h2>Configurações</h2>
+          <p class="sutil">Os campos que você preenche no <code>.env</code>. Depois de salvar, aplique para os
+            serviços passarem a usar os valores novos.</p>
+        </div>
+      </div>
+      <div id="faixa-aplicar" class="faixa" hidden>
+        <span>Salvo. As mudanças valem depois de aplicar (leva 1 a 3 minutos; os serviços reiniciam se preciso).</span>
+        <button class="botao primario" id="aplicar">Aplicar agora</button>
+      </div>
+      <form id="form-config" autocomplete="off" novalidate>
+        <div id="campos-config"><p class="carregando">Carregando…</p></div>
+        <p class="erro-form" id="erro-config" role="alert"></p>
+        <div class="acoes"><button class="botao primario" type="submit" id="salvar-config" hidden>Salvar</button></div>
+      </form>
+
+      <form id="form-senha" class="cartao grupo" autocomplete="off">
+        <h3>Senha de todos os serviços</h3>
+        <p class="sutil">Troca a senha do admin no Jellyfin, Seerr, Radarr, Sonarr, Prowlarr e Deluge de uma vez.
+          Depois, entre de novo no painel com a senha nova.</p>
+        <div class="grade">
+          <label>Senha nova <input name="senha" type="password" minlength="8" autocomplete="new-password" required></label>
+          <label>Repita <input name="senha2" type="password" minlength="8" autocomplete="new-password" required></label>
+        </div>
+        <p class="erro-form" id="erro-senha" role="alert"></p>
+        <div class="acoes"><button class="botao primario" type="submit">Trocar a senha</button></div>
+      </form>
+    </section>
+
+    <!-- Manutenção -->
+    <section id="aba-manutencao" role="tabpanel" hidden>
+      <div class="cabeca">
+        <div>
+          <h2>Manutenção</h2>
+          <p class="sutil">Atualizar faz um backup antes, baixa as versões novas e reaplica a configuração.
+            Os serviços param por alguns minutos (o painel também; ele volta sozinho).</p>
+        </div>
+        <div class="botoes">
+          <button class="botao fantasma" data-acao="backup">Fazer backup</button>
+          <button class="botao primario" data-acao="atualizar">Atualizar a Locadora</button>
+        </div>
+      </div>
+
+      <div id="tarefa" class="cartao tarefa" hidden>
+        <div class="tarefa-topo">
+          <h3 id="tarefa-nome"></h3>
+          <span id="tarefa-estado" class="selo"></span>
+        </div>
+        <pre id="tarefa-log" tabindex="0" aria-label="Saída da tarefa"></pre>
+      </div>
+
+      <div class="cartao grupo">
+        <h3>Backups</h3>
+        <p class="sutil">Guardam as configurações dos serviços, o <code>.env</code> e a VPN (filmes, séries e as
+          capas do Jellyfin não entram; ele baixa as capas de novo). Ficam os 5 mais recentes. Restaurar volta as configurações ao estado do backup.</p>
+        <div id="lista-backups" class="lista-backups"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="toast" class="toast" role="status" hidden></div>
+</body>
+</html>
