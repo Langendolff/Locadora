@@ -19,7 +19,7 @@ variáveis novas, o `./setup.sh` as acrescenta ao seu `.env` (vazias) sem mexer 
 | `STACK_USER` | `admin` | Usuário de todos os serviços |
 | `STACK_PASSWORD` | — | Senha de todos os serviços (o `setup.sh` pergunta). Para trocar depois: `./change-password.sh` |
 | `STACK_EMAIL` | `admin@example.com` | E-mail do admin no Seerr |
-| `DATA_ROOT` | `./data` | Onde ficam downloads e biblioteca. Defina **antes** do primeiro `setup.sh` |
+| `DATA_ROOT` | `./data` | Onde ficam downloads e biblioteca. O ideal é definir **antes** do primeiro `setup.sh` ([disco](#disco)) |
 | `OPENSUBTITLES_USER` / `OPENSUBTITLES_PASSWORD` | — | Conta grátis em opensubtitles.com (recomendado) |
 | `SUBDL_API_KEY` | — | Chave grátis em subdl.com |
 | `LEGENDASNET_USER` / `LEGENDASNET_PASSWORD` | — | Conta grátis em legendas.net |
@@ -29,8 +29,8 @@ variáveis novas, o `./setup.sh` as acrescenta ao seu `.env` (vazias) sem mexer 
 | `LIMPEZA_DIAS` | — | Tira filmes que todo mundo viu há este tanto de dias, ex.: `30` ([extras](extras.md#limpeza-automática)) |
 | `PAINEL_MANUTENCAO` | — | `off` deixa o Painel só com pessoas e diagnóstico: sem o serviço `operador`, que tem acesso ao Docker |
 
-Pelo Painel (aba Configurações) dá para mudar o e-mail, as contas de legenda, o Telegram, o
-Tailscale, a limpeza e as portas. Ficam só no arquivo: `STACK_USER`, `DATA_ROOT` e os que o
+Pelo Painel (aba Configurações) dá para mudar o e-mail, a pasta dos filmes e séries, as contas de
+legenda, o Telegram, o Tailscale, a limpeza e as portas. Ficam só no arquivo: `STACK_USER` e os que o
 `setup.sh` preenche. A senha tem botão próprio, que troca em todos os serviços.
 
 ### Portas no host
@@ -88,3 +88,8 @@ vídeo pela GPU (VAAPI, Intel/AMD). Sem GPU, a conversão é feita pelo processa
 
 Para guardar a mídia em outro HD, aponte `DATA_ROOT` para ele **antes** do primeiro `./setup.sh`,
 por exemplo `DATA_ROOT=/mnt/hd/locadora`. `torrents/` e `media/` precisam ficar no mesmo disco.
+
+Dá para mudar depois, pelo Painel (Configurações → Filmes e séries) ou no `.env`, mas **nada é
+movido**: mova as pastas `media/` e `torrents/` da pasta antiga para a nova antes de aplicar
+(`./setup.sh`). Os serviços enxergam a pasta sempre como `/data`, então a biblioteca volta inteira
+assim que os arquivos estiverem no lugar novo. O Painel só aceita uma pasta que já existe no servidor.

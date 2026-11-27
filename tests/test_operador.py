@@ -61,7 +61,7 @@ class TestEnvfile(unittest.TestCase):
         atuais = envfile.ler(self.env)
         ruins = [
             {"STACK_PASSWORD": "x"},              # fora da lista
-            {"DATA_ROOT": "/mnt"},
+            {"DATA_ROOT": "mnt"},
             {"RADARR_API_KEY": "x"},
             {"SUBDL_API_KEY": "a'b"},             # quebraria o KEY='valor'
             {"SUBDL_API_KEY": "a\nSTACK_PASSWORD=x"},
@@ -78,6 +78,14 @@ class TestEnvfile(unittest.TestCase):
                 envfile.validar(novos, atuais)
         self.assertEqual(envfile.validar({"TELEGRAM_CHAT_ID": " -100123 ", "LIMPEZA_DIAS": ""}, atuais),
                          {"TELEGRAM_CHAT_ID": "-100123", "LIMPEZA_DIAS": ""})
+
+    def test_validar_pasta(self):
+        atuais = envfile.ler(self.env)
+        for ruim in ("", "data", "~/filmes", "/mnt/../etc", "/mnt/hd:/x", "/", "./"):
+            with self.subTest(pasta=ruim), self.assertRaises(ValueError):
+                envfile.validar({"DATA_ROOT": ruim}, atuais)
+        self.assertEqual(envfile.validar({"DATA_ROOT": " /mnt/hd/locadora/ "}, atuais), {"DATA_ROOT": "/mnt/hd/locadora"})
+        self.assertEqual(envfile.validar({"DATA_ROOT": "./midia"}, atuais), {"DATA_ROOT": "./midia"})
 
     def test_gravar_troca_acrescenta_e_mantem_permissao(self):
         mudou = envfile.gravar(self.env, {"SUBDL_API_KEY": "nova", "TS_AUTHKEY": "tskey-1", "JELLYFIN_PORT": "8096"})
@@ -143,6 +151,23 @@ class TestOperador(unittest.TestCase):
         self.assertEqual((st, r), (200, {"mudou": ["LIMPEZA_DIAS"]}))
         self.assertEqual(envfile.ler(operador.ENV)["LIMPEZA_DIAS"], "30")
 
+    def test_pasta_nova_precisa_existir(self):
+        # fora da pasta da Locadora: confere com um container (aqui o docker falso diz que não existe)
+        st, r = self.req("POST", "/config", {"valores": {"DATA_ROOT": "/mnt/nao-existe"}})
+        self.assertEqual(st, 400)
+        self.assertIn("/mnt/nao-existe", r["erro"])
+        run = self.docker.call_args.args
+        self.assertIn("type=bind,src=/mnt/nao-existe,dst=/alvo", run)
+        self.assertNotIn("DATA_ROOT", envfile.ler(operador.ENV))
+        self.docker.return_value = (0, "", "")
+        st, r = self.req("POST", "/config", {"valores": {"DATA_ROOT": "/mnt/hd"}})
+        self.assertEqual((st, r), (200, {"mudou": ["DATA_ROOT"]}))
+        # dentro da pasta da Locadora: o operador olha direto
+        self.docker.reset_mock()
+        st, r = self.req("POST", "/config", {"valores": {"DATA_ROOT": "./midia"}})
+        self.assertEqual(st, 200)
+        self.docker.assert_not_called()
+
     def test_backups_lista_so_os_da_locadora(self):
         st, r = self.req("GET", "/backups")
         self.assertEqual([b["arquivo"] for b in r["backups"]], ["locadora-20261125-142240.tar.gz"])
@@ -193,6 +218,21 @@ class TestOperador(unittest.TestCase):
         self.assertEqual(run[run.index("--user") + 1], "1000:1000")
         self.assertEqual(run[-3:], ("locadora-operador", "./atualizar.sh", "--backup"))
         self.assertIn("LOCADORA_PELO_PAINEL=1", run)
+
+    def test_tarefa_monta_a_pasta_nova_dos_filmes(self):
+        envfile.gravar(operador.ENV, {"DATA_ROOT": "/mnt/hd/locadora"})
+        chamadas = []
+
+        def docker(*args, **kw):
+            chamadas.append(args)
+            return (1, "", "") if args[0] == "inspect" and len(chamadas) == 1 else (0, "running|0|x|y|aplicar", "")
+
+        self.docker.side_effect = docker
+        with mock.patch.object(operador, "DATA", "/srv/antiga"), mock.patch.object(operador, "usuario", return_value=None):
+            self.assertEqual(self.req("POST", "/tarefa", {"acao": "aplicar"})[0], 200)
+        run = next(a for a in chamadas if a[0] == "run")
+        self.assertIn("/mnt/hd/locadora:/mnt/hd/locadora", run)
+        self.assertIn("/srv/antiga:/srv/antiga", run)
 
 
 if __name__ == "__main__":

@@ -101,6 +101,33 @@ def baixar_privilegios():
     os.environ["HOME"] = "/tmp"
 
 
+# ---------- pasta dos filmes e séries (DATA_ROOT)
+def pasta_no_host(valor):
+    """DATA_ROOT do .env em caminho absoluto do host (./algo é relativo à pasta da Locadora)."""
+    return os.path.normpath(os.path.join(DIR, valor)) if valor else ""
+
+
+def conferir_pasta(caminho):
+    """A pasta existe no servidor e dá para gravar nela? O operador só enxerga a pasta da Locadora;
+    o resto ele confere com um container que monta o caminho (--mount falha se ele não existir, em
+    vez de criar uma pasta vazia como o -v faria)."""
+    if (caminho + "/").startswith(DIR + "/"):
+        if os.path.isdir(caminho) and os.access(caminho, os.W_OK):
+            return
+        pai = os.path.dirname(caminho)
+        if not os.path.exists(caminho) and os.path.isdir(pai) and os.access(pai, os.W_OK):
+            return  # dentro da pasta da Locadora o setup.sh cria
+    else:
+        u = usuario()
+        quem = ["--user", f"{u[0]}:{u[1]}"] if u else []
+        rc, _, _ = docker("run", "--rm", *quem, "--mount", f"type=bind,src={caminho},dst=/alvo",
+                          "--entrypoint", "test", IMAGEM, "-w", "/alvo", timeout=60)
+        if rc == 0:
+            return
+    raise Erro(400, f"a pasta {caminho} não existe no servidor ou não dá para gravar nela. "
+                    "Crie a pasta (e monte o disco) antes")
+
+
 # ---------- diagnóstico
 def diagnostico():
     vals = envfile.ler(ENV)
@@ -237,8 +264,11 @@ def iniciar_tarefa(dados):
         cmd = comando(acao, dados)
         docker("rm", "-f", TAREFA)
         vols = ["-v", f"{SOCK}:{SOCK}", "-v", f"{DIR}:{DIR}"]
-        if DATA and not (DATA + "/").startswith(DIR + "/"):
-            vols += ["-v", f"{DATA}:{DATA}"]
+        # A pasta dos filmes de quando o operador subiu e a do .env agora (mudou pelo painel e o
+        # setup.sh vai passar a usar), cada uma no mesmo caminho do host
+        for pasta in dict.fromkeys([DATA, pasta_no_host(envfile.ler(ENV).get("DATA_ROOT", ""))]):
+            if pasta and not (pasta + "/").startswith(DIR + "/"):
+                vols += ["-v", f"{pasta}:{pasta}"]
         u = usuario()
         quem = ["--user", f"{u[0]}:{u[1]}", "--group-add", str(grupo_do_socket())] if u else []
         rc, _, err = docker(
@@ -303,9 +333,12 @@ class Operador(http.server.BaseHTTPRequestHandler):
             if (metodo, caminho) == ("POST", "/config"):
                 with _trava:
                     try:
-                        limpo = envfile.validar(self._corpo().get("valores"), envfile.ler(ENV))
+                        atuais = envfile.ler(ENV)
+                        limpo = envfile.validar(self._corpo().get("valores"), atuais)
                     except ValueError as e:
                         raise Erro(400, str(e)) from None
+                    if limpo.get("DATA_ROOT") and limpo["DATA_ROOT"] != atuais.get("DATA_ROOT"):
+                        conferir_pasta(pasta_no_host(limpo["DATA_ROOT"]))
                     mudou = envfile.gravar(ENV, limpo)
                 if mudou:
                     print(f"[operador] .env: {', '.join(mudou)}", flush=True)

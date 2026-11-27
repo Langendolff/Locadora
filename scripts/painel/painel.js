@@ -250,6 +250,7 @@ function campoConfig(c) {
   else input.value = c.valor;
   if (c.tipo === "porta") { input.min = 1024; input.max = 65535; input.required = true; }
   if (c.tipo === "numero") { input.min = 1; input.max = 3650; }
+  if (c.tipo === "pasta") { input.required = true; input.placeholder = "/mnt/hd/locadora"; }
   const rotulo = el("label", { class: "campo" }, el("span", { text: c.rotulo }), input);
   if (segredo && c.definido) {
     const caixa = el("input", { type: "checkbox", name: c.chave + "__remover" });
@@ -275,6 +276,11 @@ $("#form-config").addEventListener("submit", async (ev) => {
     }
   }
   if (!Object.keys(valores).length) { avisar("Nada mudou."); return; }
+  if ("DATA_ROOT" in valores && !confirm(
+    `Mudar a pasta dos filmes e séries para ${valores.DATA_ROOT}?\n\n` +
+    "Nada é movido: o que está na pasta de agora fica lá. Para levar a biblioteca, mova as pastas " +
+    "media/ e torrents/ para a pasta nova ANTES de aplicar; senão o Jellyfin mostra a biblioteca vazia " +
+    "e os downloads em andamento se perdem.")) return;
   ocupado(botao, true, "Salvando…");
   try {
     const r = await api("POST", "/api/config", { valores });

@@ -3,8 +3,10 @@
 Só a parte "você preenche" do .env.example entra aqui. Ficam de fora, de propósito:
   STACK_USER         trocar o usuário não é suportado pelo setup.sh
   STACK_PASSWORD     tem fluxo próprio (./change-password.sh troca em todos os serviços)
-  DATA_ROOT          mudar depois da instalação "perde" a biblioteca
   o resto            chaves e valores que o setup.sh gera sozinho
+
+DATA_ROOT (onde ficam filmes e séries) entra, mas mudar não move nada: o operador confere que a pasta
+nova existe no servidor e o painel avisa para mover media/ e torrents/ antes de aplicar.
 
 Gravação igual ao set_env do setup.sh: KEY='valor', no lugar da linha existente ou no fim.
 """
@@ -12,6 +14,7 @@ import re
 
 GRUPOS = [
     ("conta", "Conta"),
+    ("disco", "Filmes e séries"),
     ("legendas", "Legendas"),
     ("telegram", "Telegram"),
     ("remoto", "Fora de casa (Tailscale)"),
@@ -19,9 +22,12 @@ GRUPOS = [
     ("portas", "Portas"),
 ]
 
-# chave, grupo, rótulo, tipo (texto|segredo|numero|porta|chat|email), ajuda
+# chave, grupo, rótulo, tipo (texto|segredo|numero|porta|chat|email|pasta), ajuda
 CAMPOS = [
     ("STACK_EMAIL", "conta", "E-mail do admin no Seerr", "email", ""),
+    ("DATA_ROOT", "disco", "Pasta no servidor", "pasta",
+     "Caminho completo no servidor, ex.: /mnt/hd/locadora. Dentro dela ficam media/ (a biblioteca) e "
+     "torrents/ (downloads), no mesmo disco. Mudar não move nada: mova as duas pastas antes de aplicar"),
     ("OPENSUBTITLES_USER", "legendas", "OpenSubtitles: usuário", "texto", "Conta grátis em opensubtitles.com (recomendado)"),
     ("OPENSUBTITLES_PASSWORD", "legendas", "OpenSubtitles: senha", "segredo", ""),
     ("SUBDL_API_KEY", "legendas", "SubDL: chave da API", "segredo", "Conta grátis em subdl.com, chave no painel deles"),
@@ -104,6 +110,14 @@ def validar(novos, atuais):
                 raise ValueError(f"{chave}: número de dias entre 1 e 3650 (ou vazio)")
         elif tipo == "chat" and v and not re.fullmatch(r"-?\d{1,20}", v):
             raise ValueError(f"{chave}: só números (grupos começam com -)")
+        elif tipo == "pasta":
+            if not v.startswith(("/", "./")):
+                raise ValueError(f"{chave}: use o caminho completo, começando com / (ex.: /mnt/hd/locadora)")
+            if ":" in v or "\\" in v or ".." in v.split("/"):
+                raise ValueError(f"{chave}: caminho inválido (sem :, \\ nem ..)")
+            if v.rstrip("/") in ("", "."):
+                raise ValueError(f"{chave}: escolha uma pasta, não a raiz")
+            v = v.rstrip("/")
         elif tipo == "email" and v and not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", v):
             raise ValueError(f"{chave}: e-mail inválido")
         limpo[chave] = v

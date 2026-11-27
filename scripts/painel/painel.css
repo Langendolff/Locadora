@@ -110,7 +110,11 @@ select { cursor: pointer; }
 @keyframes gira { to { transform: rotate(360deg); } }
 
 /* ---------- configurações */
+fieldset { margin: 0; min-width: 0; }   /* sem a margem padrão: alinha com os outros cartões */
 .grupo { margin-bottom: 1rem; }
+#form-config { margin-bottom: 2.5rem; }
+#form-config > .acoes { margin-top: 0; align-items: center; }
+#form-config > .acoes .erro-form { margin: 0 auto 0 0; }
 .grupo .sutil { margin-bottom: .9rem; }
 .campo .ajuda { font-size: .8rem; color: var(--text-2); opacity: .85; }
 .campo .definido { font-size: .75rem; color: var(--ok); }
